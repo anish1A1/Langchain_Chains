@@ -1,9 +1,11 @@
 from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
-from langchain_core.runnables import RunnableParallel
+from langchain_core.runnables import RunnableParallel, RunnableBranch, RunnableLambda
 from pydantic import BaseModel, Field
 from typing import Literal 
+
+# runnable Branch is used for chain that needs to be used as if else statement
 
 # We will get customer feedback add it to model, then if the response is postive or negative it will be sent to another models and response will be generated to that user.
 
@@ -36,4 +38,38 @@ prompt1 = PromptTemplate(
 
 classifier_chain = prompt1 | model | parser
 
-print(classifier_chain.invoke({'feedback': 'This smartphone is really fast! But I will not buy again '}))
+# print(classifier_chain.invoke({'feedback': 'This smartphone is really fast! But I will not buy again '}))
+
+
+# Second phase 
+
+prompt2 = PromptTemplate(
+    template='Write an appropriate response to this positive feedback \n {feedback}',
+    input_variables=['feedback']
+)
+
+prompt3 = PromptTemplate(
+    template='Write an appropriate response to this negative feedback \n {feedback}',
+    input_variables=['feedback']
+)
+
+
+# We write in this way.
+# branch_chain = RunnableBranch(
+#     (condition1, chain1),
+#     (condition2, chain2),
+#     default chain
+# )
+
+branch_chain = RunnableBranch(
+    (lambda x:x.sentiment == 'positive', prompt2 | model2 | parser),
+    (lambda x:x.sentiment == 'negative', prompt3 | model | parser),
+    RunnableLambda(lambda x: "Could not find sentiment")   
+)
+
+chain = classifier_chain | branch_chain
+
+output = chain.invoke({'feedback': 'This smartphone is really fast! But I will not buy again '})
+
+print(output)
+
