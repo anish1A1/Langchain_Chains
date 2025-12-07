@@ -11,7 +11,7 @@ model = ChatHuggingFace(llm=llm)
 
 parser = StrOutputParser()
 prompt = PromptTemplate(
-    template='Generate 5 interesting facts about {topic}',
+    template='Generate 2 interesting facts about {topic}',
     input_variables=['topic']
 )
 
@@ -20,3 +20,6 @@ chain = prompt | model | parser
 
 result = chain.invoke({'topic':'Pokemon'})
 print(result)
+
+
+print(chain.get_graph().draw_ascii())
