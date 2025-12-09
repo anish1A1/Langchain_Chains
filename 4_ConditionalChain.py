@@ -26,17 +26,25 @@ model2 = ChatHuggingFace(llm=llm2)
 
 
 class feedback(BaseModel):
-    sentiment:Literal['positive', 'negative'] = Field(description='Give the sentiment of the feedback')
+    sentiment:Literal['positive', 'negative'] = Field(description='Sentiment of the feedback')
 
 parser = PydanticOutputParser(pydantic_object=feedback)
 
 prompt1 = PromptTemplate(
-    template='Classify the sentiment of the following feedback text into positive or negative \n {feedback} \n{format_instruction}',
-    input_variables=['feedback'],
-    partial_variables={'format_instruction': parser.get_format_instructions()}
+    template=(
+        "Classify the sentiment of the following feedback as 'positive' or 'negative'.\n"
+        "You MUST respond ONLY in valid JSON. No explanation.\n\n"
+        "Feedback: {feedback}\n\n"
+        "Return output in this JSON format:\n"
+        "{format_instruction}\n\n"
+        "ONLY return JSON. No extra words."
+    ),
+    input_variables=["feedback"],
+    partial_variables={"format_instruction": parser.get_format_instructions()}
 )
 
-classifier_chain = prompt1 | model | parser
+
+classifier_chain = prompt1 | model2 | parser
 
 # print(classifier_chain.invoke({'feedback': 'This smartphone is really fast! But I will not buy again '}))
 
@@ -62,14 +70,15 @@ prompt3 = PromptTemplate(
 # )
 
 branch_chain = RunnableBranch(
-    (lambda x:x.sentiment == 'positive', prompt2 | model2 | parser),
-    (lambda x:x.sentiment == 'negative', prompt3 | model | parser),
-    RunnableLambda(lambda x: "Could not find sentiment")   
+    (lambda x: x.sentiment == "positive", prompt2 | model2),
+    (lambda x: x.sentiment == "negative", prompt3 | model2),
+    RunnableLambda(lambda x: "Could not find sentiment")
 )
+
 
 chain = classifier_chain | branch_chain
 
-output = chain.invoke({'feedback': 'This smartphone is really fast! But I will not buy again '})
+output = chain.invoke({'feedback': 'This smartphone is really fast! But I will buy again '})
 
-print(output)
+print(output.content)
 
